@@ -5,12 +5,14 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
 
 class AuthController extends Controller
 {
-  public function login() :View
+  public function signin() :View
   {
     return view('components.login');
   }
@@ -22,12 +24,36 @@ class AuthController extends Controller
 
   public function store(Request $request): RedirectResponse
   {
-    $validation = $request->validate([
+    $request->validate([
       'username' => 'required|unique:users|max:255|min:2',
-      'email'    => 'required|email:rfc,dns',
+      'email'    => 'required|email:rfc,dns|unique:users',
       'password' => ['required', 'confirmed', Password::min(8)->numbers()->symbols()]
     ]);
 
-    return redirect('signin');
+    User::create([
+      'username' => $request->username,
+      'email'    => $request->email,
+      'password' => Hash::make($request->password)
+    ]);
+
+    return redirect()->route('signin');
   }
+
+  public function verify(Request $request): RedirectResponse
+  {
+    $request->validate([
+      'username' => 'required',
+      'password' => 'required'
+    ]);
+
+    $user = User::where('username', $request->username)->first();
+
+    if ($user && Hash::check($request->password, $user->password)) {
+      Auth::login($user);
+      return redirect()->route('dashboard');
+    } else {
+      return redirect()->back()->with('alert', 'Username atau password salah');
+    }
+  }
+
 }
